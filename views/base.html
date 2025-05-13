@@ -6,6 +6,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, minimal-ui">
     <meta name="is-admin" content="{{admin|default(false)}}">
 
+    <!-- 关键资源预加载 -->
+    <link rel="preload" href="/css/style.min.css" as="style">
+    <link rel="preload" href="/js/core.js" as="script">
+    <link rel="preload" href="/js/settings-sync.js" as="script">
+    <link rel="preload" href="/js/card-beautifier.js" as="script">
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+
     <!-- PWA 支持 -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black">
@@ -58,10 +65,25 @@
             --card-bg-image-opacity: {% if setting.personalization and setting.personalization.card and setting.personalization.card.backgroundImage %}{{setting.personalization.card.backgroundImage.opacity|default(0.8)}}{% else %}0.8{% endif %};
         }
 
+        /* 页面转场动画 */
+        .page-transition-out {
+            opacity: 0.7;
+            transition: opacity 0.15s ease;
+        }
+        .page-transition-in {
+            opacity: 0;
+            animation: fadeIn 0.3s forwards;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
         body {
             font-family: var(--font-family-sans);
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
+            transition: opacity 0.15s ease;
         }
 
         /* 模糊效果类 */
@@ -708,6 +730,31 @@
     (function() {
         // 仅在支持sessionStorage的浏览器上启用
         if (typeof sessionStorage === 'undefined') return;
+
+        // 页面预加载功能
+        const prefetchPages = function() {
+            // 获取当前页面的所有本站链接
+            const localLinks = Array.from(document.querySelectorAll('a[href^="/"]')).slice(0, 3);
+            
+            // 优先处理常用页面链接
+            localLinks.forEach(link => {
+                const href = link.getAttribute('href');
+                if (href && !href.startsWith('#') && !href.startsWith('javascript:')) {
+                    // 创建预取提示
+                    const linkEl = document.createElement('link');
+                    linkEl.rel = 'prefetch';
+                    linkEl.href = href;
+                    document.head.appendChild(linkEl);
+                }
+            });
+        };
+
+        // 页面加载完成后执行预取
+        if (document.readyState === 'complete') {
+            setTimeout(prefetchPages, 300);
+        } else {
+            window.addEventListener('load', () => setTimeout(prefetchPages, 300));
+        }
 
         // 为所有导航链接添加事件
         document.addEventListener('click', function(e) {

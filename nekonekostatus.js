@@ -14,11 +14,39 @@ const core=require("./core"),
 var setting=db.setting.all();
 var svr=express();
 
+// 静态资源压缩 - 如果有compression模块则使用
+try {
+    const compression = require('compression');
+    svr.use(compression());
+    console.log('[系统] 已启用资源压缩');
+} catch (e) {
+    console.log('[系统] 未找到compression模块，资源不会被压缩');
+}
+
 svr.use(bp.urlencoded({extended: false}));
 svr.use(bp.json({limit:'100mb'}));
 svr.use(ckp());
 svr.use(express.json());
-svr.use(express.static(__dirname+"/static"));
+
+// 静态资源缓存设置
+const staticOptions = {
+    etag: true, // 启用ETag
+    lastModified: true, // 启用Last-Modified
+    setHeaders: (res, path) => {
+        // 为不同类型的资源设置不同缓存策略
+        const ext = path.split('.').pop().toLowerCase();
+        
+        // 图片、字体、CSS和JS等静态资源可以缓存更长时间
+        if (['jpg', 'jpeg', 'png', 'gif', 'svg', 'webp', 'woff', 'woff2', 'ttf', 'eot', 'css', 'js'].includes(ext)) {
+            // 缓存一周
+            res.setHeader('Cache-Control', 'public, max-age=604800, stale-while-revalidate=86400');
+        } else {
+            // 其他资源使用较短缓存
+            res.setHeader('Cache-Control', 'public, max-age=3600');
+        }
+    }
+};
+svr.use(express.static(__dirname+"/static", staticOptions));
 
 // 添加设备检测中间件
 svr.use((req, res, next) => {
